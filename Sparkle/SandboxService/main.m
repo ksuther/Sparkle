@@ -79,8 +79,11 @@ static void peer_event_handler(xpc_connection_t peer, xpc_object_t event)
             [SUPlainInstaller releaseFromQuarantine:relaunchToolPath];
 			
 			for (size_t i = 0; i < xpc_array_get_count(array); i++) {
-				[arguments addObject:
-				 [NSString stringWithUTF8String:xpc_array_get_string(array, i)]];
+				NSString *string = [NSString stringWithUTF8String:xpc_array_get_string(array, i)];
+				
+				if (string) {
+					[arguments addObject:string];
+				}
 			}
 			
 			[NSTask launchedTaskWithLaunchPath: relaunchToolPath arguments:arguments];
