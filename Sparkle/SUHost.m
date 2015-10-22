@@ -62,6 +62,18 @@
     return [self.bundle bundlePath];
 }
 
+- (BOOL)allowsAutomaticUpdates
+{
+    // Does the developer want us to disable automatic updates?
+    NSNumber *developerAllowsAutomaticUpdates = [self objectForInfoDictionaryKey:SUAllowsAutomaticUpdatesKey];
+    if (developerAllowsAutomaticUpdates != nil && !developerAllowsAutomaticUpdates.boolValue) {
+        return NO;
+    }
+    
+    // Can we automatically update in the background without bugging the user (e.g, with a administrator password prompt)?
+    return [[NSFileManager defaultManager] isWritableFileAtPath:self.bundlePath];
+}
+
 - (NSString *)appCachePath
 {
     NSArray *cachePaths = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES);
@@ -274,7 +286,7 @@
 
 + (NSOperatingSystemVersion)operatingSystemVersion
 {
-#if __MAC_OS_X_VERSION_MIN_REQUIRED < 1090 // Present in 10.9 despite NS_AVAILABLE's claims
+#if __MAC_OS_X_VERSION_MIN_REQUIRED < 101000
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wselector"
     // Xcode 5.1.1: operatingSystemVersion is clearly declared, must warn due to a compiler bug?
@@ -291,6 +303,18 @@
     }
 #endif
     return [[NSProcessInfo processInfo] operatingSystemVersion];
+}
+
++ (BOOL)isOperatingSystemAtLeastVersion:(NSOperatingSystemVersion)version
+{
+    const NSOperatingSystemVersion systemVersion = self.operatingSystemVersion;
+    if (systemVersion.majorVersion == version.majorVersion) {
+        if (systemVersion.minorVersion == version.minorVersion) {
+            return systemVersion.patchVersion >= version.patchVersion;
+        }
+        return systemVersion.minorVersion >= version.minorVersion;
+    }
+    return systemVersion.majorVersion >= version.majorVersion;
 }
 
 + (NSString *)systemVersionString
