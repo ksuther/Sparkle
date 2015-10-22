@@ -10,7 +10,6 @@
 
 @interface SUXPC : NSObject
 
-+ (BOOL)copyPathWithAuthentication:(NSString *)src overPath:(NSString *)dst temporaryName:(NSString *)tmp error:(NSError **)error;
 + (void)launchTaskWithLaunchPath:(NSString *)path arguments:(NSArray *)arguments;
 
 @end

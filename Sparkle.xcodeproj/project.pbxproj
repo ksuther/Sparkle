@@ -49,21 +49,18 @@
 		14950073195FCE4E00BC5B5B /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0867D6A5FE840307C02AAC07 /* AppKit.framework */; };
 		14958C6E19AEBC950061B14F /* signed-test-file.txt in Resources */ = {isa = PBXBuildFile; fileRef = 14958C6B19AEBC530061B14F /* signed-test-file.txt */; };
 		14958C6F19AEBC980061B14F /* test-pubkey.pem in Resources */ = {isa = PBXBuildFile; fileRef = 14958C6C19AEBC610061B14F /* test-pubkey.pem */; };
+		3748B4E41BD93F47007D1FCC /* SUFileManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 7275F9C01B5F1F2900B1D19E /* SUFileManager.m */; settings = {ASSET_TAGS = (); }; };
+		3748B4E51BD93F56007D1FCC /* SUHost.m in Sources */ = {isa = PBXBuildFile; fileRef = 61EF67550E25B58D00F754E0 /* SUHost.m */; settings = {ASSET_TAGS = (); }; };
+		3748B4E61BD93F5F007D1FCC /* SULog.m in Sources */ = {isa = PBXBuildFile; fileRef = 55C14F05136EF6DB00649790 /* SULog.m */; settings = {ASSET_TAGS = (); }; };
+		3748B4E71BD93F63007D1FCC /* SUSystemProfiler.m in Sources */ = {isa = PBXBuildFile; fileRef = 61A2279B0D1CEE7600430CCD /* SUSystemProfiler.m */; settings = {ASSET_TAGS = (); }; };
+		3748B4E81BD93F71007D1FCC /* SUConstants.m in Sources */ = {isa = PBXBuildFile; fileRef = 61299A5F09CA6EB100B7442F /* SUConstants.m */; settings = {ASSET_TAGS = (); }; };
 		3772FEA913DE0B6B00F79537 /* SUVersionDisplayProtocol.h in Headers */ = {isa = PBXBuildFile; fileRef = 3772FEA813DE0B6B00F79537 /* SUVersionDisplayProtocol.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		377E56571A8BB6AF003F5516 /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0867D6A5FE840307C02AAC07 /* AppKit.framework */; };
 		377E56581A8BB6B2003F5516 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0867D69BFE84028FC02AAC07 /* Foundation.framework */; };
 		377E56591A8BB6B7003F5516 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 61B5F8F609C4CEB300B25A18 /* Security.framework */; };
 		377E565E1A8BB71D003F5516 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 377E565B1A8BB71D003F5516 /* main.m */; };
-		377E56621A8BB73C003F5516 /* SUCodeSigningVerifier.m in Sources */ = {isa = PBXBuildFile; fileRef = 61B078CD15A5FB6100600039 /* SUCodeSigningVerifier.m */; };
-		377E56631A8BB744003F5516 /* SUPlainInstaller.m in Sources */ = {isa = PBXBuildFile; fileRef = 618FA5040DAE8AB80026945C /* SUPlainInstaller.m */; };
-		377E56641A8BB744003F5516 /* SUPlainInstallerInternals.m in Sources */ = {isa = PBXBuildFile; fileRef = 61B5F8E509C4CE3C00B25A18 /* SUPlainInstallerInternals.m */; };
-		377E56651A8BB74C003F5516 /* SUConstants.m in Sources */ = {isa = PBXBuildFile; fileRef = 61299A5F09CA6EB100B7442F /* SUConstants.m */; };
-		377E56661A8BB753003F5516 /* SUInstaller.m in Sources */ = {isa = PBXBuildFile; fileRef = 618FA5000DAE88B40026945C /* SUInstaller.m */; };
-		377E56671A8BB759003F5516 /* SULog.m in Sources */ = {isa = PBXBuildFile; fileRef = 55C14F05136EF6DB00649790 /* SULog.m */; };
-		377E56681A8BB760003F5516 /* SUPackageInstaller.m in Sources */ = {isa = PBXBuildFile; fileRef = 618FA5210DAE8E8A0026945C /* SUPackageInstaller.m */; };
 		377E56691A8BB780003F5516 /* SUXPC.m in Sources */ = {isa = PBXBuildFile; fileRef = 377E565D1A8BB71D003F5516 /* SUXPC.m */; };
 		37F3EFC41A8BB8DA00834FC5 /* org.sparkle-project.Sparkle.SandboxService.xpc in Copy Files (1 item) */ = {isa = PBXBuildFile; fileRef = 377E56491A8BB5E9003F5516 /* org.sparkle-project.Sparkle.SandboxService.xpc */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		37F3EFD11A8BBCB500834FC5 /* SUGuidedPackageInstaller.m in Sources */ = {isa = PBXBuildFile; fileRef = 767B61AB1972D488004E0C3C /* SUGuidedPackageInstaller.m */; };
 		55C14BD4136EEFCE00649790 /* Autoupdate.m in Sources */ = {isa = PBXBuildFile; fileRef = 55C14BD3136EEFCE00649790 /* Autoupdate.m */; };
 		55C14BD9136EF00C00649790 /* SUStatus.xib in Resources */ = {isa = PBXBuildFile; fileRef = 55C14BD8136EF00C00649790 /* SUStatus.xib */; };
 		55C14BEE136EF20D00649790 /* SUAutomaticUpdateAlert.xib in Resources */ = {isa = PBXBuildFile; fileRef = 55C14BDA136EF20D00649790 /* SUAutomaticUpdateAlert.xib */; };
@@ -1219,7 +1216,6 @@
 			buildPhases = (
 				377E56451A8BB5E9003F5516 /* Sources */,
 				377E56461A8BB5E9003F5516 /* Frameworks */,
-				377E56561A8BB693003F5516 /* Set Git Version Info */,
 			);
 			buildRules = (
 			);
@@ -1541,15 +1537,12 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				377E56621A8BB73C003F5516 /* SUCodeSigningVerifier.m in Sources */,
-				377E56651A8BB74C003F5516 /* SUConstants.m in Sources */,
-				37F3EFD11A8BBCB500834FC5 /* SUGuidedPackageInstaller.m in Sources */,
-				377E56661A8BB753003F5516 /* SUInstaller.m in Sources */,
-				377E56671A8BB759003F5516 /* SULog.m in Sources */,
-				377E56681A8BB760003F5516 /* SUPackageInstaller.m in Sources */,
-				377E56631A8BB744003F5516 /* SUPlainInstaller.m in Sources */,
-				377E56641A8BB744003F5516 /* SUPlainInstallerInternals.m in Sources */,
+				3748B4E61BD93F5F007D1FCC /* SULog.m in Sources */,
 				377E565E1A8BB71D003F5516 /* main.m in Sources */,
+				3748B4E51BD93F56007D1FCC /* SUHost.m in Sources */,
+				3748B4E41BD93F47007D1FCC /* SUFileManager.m in Sources */,
+				3748B4E71BD93F63007D1FCC /* SUSystemProfiler.m in Sources */,
+				3748B4E81BD93F71007D1FCC /* SUConstants.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2013,6 +2006,13 @@
 			};
 			name = Release;
 		};
+		3748B4E31BD93F0D007D1FCC /* Coverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = SandboxService;
+			};
+			name = Coverage;
+		};
 		377E56541A8BB5E9003F5516 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 377E56431A8BB595003F5516 /* ConfigSandboxServiceDebug.xcconfig */;
@@ -2141,6 +2141,7 @@
 			buildConfigurations = (
 				377E56541A8BB5E9003F5516 /* Debug */,
 				377E56551A8BB5E9003F5516 /* Release */,
+				3748B4E31BD93F0D007D1FCC /* Coverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

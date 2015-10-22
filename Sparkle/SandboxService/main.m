@@ -15,9 +15,8 @@
 
 #include <xpc/xpc.h>
 #include <Foundation/Foundation.h>
-#import "SUPlainInstallerInternals.h"
+#import "SUFileManager.h"
 #import "SULog.h"
-#import "SUCodeSigningVerifier.h"
 
 static void peer_event_handler(xpc_connection_t peer, xpc_object_t event)
 {
@@ -36,38 +35,9 @@ static void peer_event_handler(xpc_connection_t peer, xpc_object_t event)
 		assert(type == XPC_TYPE_DICTIONARY);
 		// Handle the message.
 		const char *identifier = xpc_dictionary_get_string(event, "id");
-		BOOL copyPath = strcmp(identifier, "copy_path") == 0;
 		BOOL launchTask = strcmp(identifier, "launch_task") == 0;
 		
-		if( copyPath )
-		{
-			const char *src = xpc_dictionary_get_string(event, "source");
-			const char *dst = xpc_dictionary_get_string(event, "destination");
-			const char *tmp = xpc_dictionary_get_string(event, "tmp");
-			
-			NSFileManager *manager = [NSFileManager defaultManager];
-			NSString *relaunchPathToCopy = src ? [manager stringWithFileSystemRepresentation:src length:strlen(src)] : nil;
-			NSString *targetPath = dst ? [manager stringWithFileSystemRepresentation:dst length:strlen(dst)] : nil;
-			NSString *temporaryName = tmp ? [NSString stringWithUTF8String:tmp] : nil;
-			NSError *error = nil;
-            
-            
-            // Validation
-            if ( [SUCodeSigningVerifier codeSignatureIsValidAtPath:temporaryName error:&error] )
-            {
-                // Installation
-                [SUPlainInstaller copyPathWithAuthentication:relaunchPathToCopy overPath:targetPath appendVersion:SPARKLE_APPEND_VERSION_NUMBER error:&error];
-            }
-            else
-            {
-                SULog(@"====> Code signature check on update failed: %@", [error description]);
-            }
-			
-			// send response to indicate ok
-			xpc_object_t reply = xpc_dictionary_create_reply(event);
-			xpc_connection_send_message(peer, reply);
-		}
-		else if( launchTask )
+		if( launchTask )
 		{
 			const char *path = xpc_dictionary_get_string(event, "path");
 			xpc_object_t array = xpc_dictionary_get_value(event, "arguments");
@@ -75,8 +45,13 @@ static void peer_event_handler(xpc_connection_t peer, xpc_object_t event)
 			NSFileManager *manager = [NSFileManager defaultManager];
 			NSString *relaunchToolPath = path ? [manager stringWithFileSystemRepresentation:path length:strlen(path)] : nil;;
 			NSMutableArray *arguments = [NSMutableArray array];
-            
-            [SUPlainInstaller releaseFromQuarantine:relaunchToolPath];
+			NSError *error;
+			
+			[[[SUFileManager alloc] init] releaseItemFromQuarantineAtRootURL:[NSURL fileURLWithPath:relaunchToolPath] error:&error];
+			
+			if (error) {
+				NSLog(@"Failed to release %@ from quarantine: %@", relaunchToolPath, error);
+			}
 			
 			for (size_t i = 0; i < xpc_array_get_count(array); i++) {
 				NSString *string = [NSString stringWithUTF8String:xpc_array_get_string(array, i)];
