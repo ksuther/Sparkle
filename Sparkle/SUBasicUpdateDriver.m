@@ -9,6 +9,7 @@
 #import "SUBasicUpdateDriver.h"
 
 #import "SUHost.h"
+#import "SUOperatingSystem.h"
 #import "SUDSAVerifier.h"
 #import "SUInstaller.h"
 #import "SUStandardVersionComparator.h"
@@ -97,10 +98,10 @@
 
     // Check minimum and maximum System Version
     if ([ui minimumSystemVersion] != nil && ![[ui minimumSystemVersion] isEqualToString:@""]) {
-        minimumVersionOK = [[SUStandardVersionComparator defaultComparator] compareVersion:[ui minimumSystemVersion] toVersion:[SUHost systemVersionString]] != NSOrderedDescending;
+        minimumVersionOK = [[SUStandardVersionComparator defaultComparator] compareVersion:[ui minimumSystemVersion] toVersion:[SUOperatingSystem systemVersionString]] != NSOrderedDescending;
     }
     if ([ui maximumSystemVersion] != nil && ![[ui maximumSystemVersion] isEqualToString:@""]) {
-        maximumVersionOK = [[SUStandardVersionComparator defaultComparator] compareVersion:[ui maximumSystemVersion] toVersion:[SUHost systemVersionString]] != NSOrderedAscending;
+        maximumVersionOK = [[SUStandardVersionComparator defaultComparator] compareVersion:[ui maximumSystemVersion] toVersion:[SUOperatingSystem systemVersionString]] != NSOrderedAscending;
     }
 
     return minimumVersionOK && maximumVersionOK;
@@ -245,10 +246,14 @@
     
     // Modern packages are not distributed as bundles and are code signed differently than regular applications
     if (isPackage) {
+        if (nil == publicDSAKey) {
+            SULog(@"The existing app bundle does not have a DSA key, so it can't verify installer packages.");
+        }
+
         BOOL packageValidated = [SUDSAVerifier validatePath:downloadedPath withEncodedDSASignature:DSASignature withPublicDSAKey:publicDSAKey];
 
         if (!packageValidated) {
-            SULog(@"DSA signature validation of the package failed. The update will be rejected.");
+            SULog(@"DSA signature validation of the package failed. The update contains an installer package, and valid DSA signatures are mandatory for all installer packages. The update will be rejected. Sign the installer with a valid DSA key or use an .app bundle update instead.");
         }
         
         return packageValidated;
@@ -453,16 +458,19 @@
     if (relaunchPathToCopy != nil) {
         NSString *targetPath = [self.host.appCachePath stringByAppendingPathComponent:[relaunchPathToCopy lastPathComponent]];
         
-        NSFileManager *fileManager = [[NSFileManager alloc] init];
+        SUFileManager *fileManager = [SUFileManager fileManagerAllowingAuthorization:NO];
         NSError *error = nil;
+        
+        NSURL *relaunchURLToCopy = [NSURL fileURLWithPath:relaunchPathToCopy];
+        NSURL *targetURL = [NSURL fileURLWithPath:targetPath];
         
         // We only need to run our copy of the app by spawning a task
         // Since we are copying the app to a directory that is write-accessible, we don't need to muck with owner/group IDs
-        if ([self preparePathForRelaunchTool:targetPath error:&error] && [fileManager copyItemAtPath:relaunchPathToCopy toPath:targetPath error:&error]) {
+        if ([self preparePathForRelaunchTool:targetPath error:&error] && [fileManager copyItemAtURL:relaunchURLToCopy toURL:targetURL error:&error]) {
             // We probably don't need to release the quarantine, but we'll do it just in case it's necessary.
             // Perhaps in a sandboxed environment this matters more. Note that this may not be a fatal error.
             NSError *quarantineError = nil;
-            if (![[[SUFileManager alloc] init] releaseItemFromQuarantineWithoutAuthenticationAtRootURL:[NSURL fileURLWithPath:targetPath] error:&quarantineError]) {
+            if (![fileManager releaseItemFromQuarantineAtRootURL:targetURL error:&quarantineError]) {
                 SULog(@"Failed to release quarantine on %@ with error %@", targetPath, quarantineError);
             }
             self.relaunchPath = targetPath;
