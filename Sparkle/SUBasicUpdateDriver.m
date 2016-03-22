@@ -326,18 +326,22 @@
     if (!failingUrl) {
         failingUrl = [self.updateItem fileURL];
     }
-    
+
     if ([[self.updater delegate] respondsToSelector:@selector(updater:failedToDownloadUpdate:error:)]) {
         [[self.updater delegate] updater:self.updater
                   failedToDownloadUpdate:self.updateItem
                                    error:error];
     }
 
-    [self abortUpdateWithError:[NSError errorWithDomain:SUSparkleErrorDomain code:SURelaunchError userInfo:@{
+    NSMutableDictionary *userInfo = [NSMutableDictionary dictionaryWithDictionary:@{
         NSLocalizedDescriptionKey: SULocalizedString(@"An error occurred while downloading the update. Please try again later.", nil),
         NSUnderlyingErrorKey: error,
-        NSURLErrorFailingURLErrorKey: failingUrl ? failingUrl : [NSNull null],
-    }]];
+    }];
+    if (failingUrl) {
+        userInfo[NSURLErrorFailingURLErrorKey] = failingUrl;
+    }
+
+    [self abortUpdateWithError:[NSError errorWithDomain:SUSparkleErrorDomain code:SURelaunchError userInfo:userInfo]];
 }
 
 - (BOOL)download:(NSURLDownload *)__unused download shouldDecodeSourceDataOfMIMEType:(NSString *)encodingType
@@ -571,7 +575,12 @@
 - (void)abortUpdateWithError:(NSError *)error
 {
     if ([error code] != SUNoUpdateError) { // Let's not bother logging this.
-        SULog(@"Error: %@ %@ (URL %@)", error.localizedDescription, error.localizedFailureReason, error.userInfo[NSURLErrorFailingURLErrorKey]);
+        NSError *errorToDisplay = error;
+        int finiteRecursion=5;
+        do {
+            SULog(@"Error: %@ %@ (URL %@)", errorToDisplay.localizedDescription, errorToDisplay.localizedFailureReason, errorToDisplay.userInfo[NSURLErrorFailingURLErrorKey]);
+            errorToDisplay = errorToDisplay.userInfo[NSUnderlyingErrorKey];
+        } while(--finiteRecursion && errorToDisplay);
     }
     if (self.download) {
         [self.download cancel];
