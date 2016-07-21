@@ -532,9 +532,7 @@
                                        self.tempDir,
                                        relaunch ? @"1" : @"0",
                                        showUI ? @"1" : @"0"];
-    
-    BOOL inSandbox = (nil != [[[NSProcessInfo processInfo] environment] objectForKey:@"APP_SANDBOX_CONTAINER_ID"]);
-    BOOL useXPC = inSandbox && [[NSFileManager defaultManager] fileExistsAtPath:[sparkleBundle.bundlePath stringByAppendingPathComponent:[NSString stringWithFormat:@"XPCServices/%@.xpc", @(SPARKLE_SANDBOX_SERVICE_NAME)]]];
+    BOOL useXPC = [self isSandboxed] && [[NSFileManager defaultManager] fileExistsAtPath:[sparkleBundle.bundlePath stringByAppendingPathComponent:[NSString stringWithFormat:@"XPCServices/%@.xpc", @(SPARKLE_SANDBOX_SERVICE_NAME)]]];
     
     SULog(@"installWithToolAndRelaunch - using xpc=%d", useXPC);
     
@@ -545,6 +543,29 @@
     }
     
     [self terminateApp];
+}
+
+- (BOOL)isSandboxed
+{
+    BOOL sandboxed = NO;
+    SecStaticCodeRef code = NULL;
+    SecStaticCodeCreateWithPath((__bridge CFURLRef)self.updater.hostBundle.bundleURL, kSecCSDefaultFlags, &code);
+    SecRequirementRef requirement = NULL;
+    SecRequirementCreateWithString(CFSTR("entitlement[\"com.apple.security.app-sandbox\"] exists"), kSecCSDefaultFlags, &requirement);
+
+    if (code && requirement) {
+        sandboxed = SecStaticCodeCheckValidity(code, (SecCSFlags)kSecCSBasicValidateOnly, requirement) == errSecSuccess;
+    }
+
+    if (requirement) {
+        CFRelease(requirement);
+    }
+
+    if (code) {
+        CFRelease(code);
+    }
+
+    return sandboxed;
 }
 
 // Note: this is overridden by the automatic update driver to not terminate in some cases
