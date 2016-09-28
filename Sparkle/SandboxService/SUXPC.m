@@ -18,7 +18,12 @@
 	xpc_connection_t connection = xpc_connection_create(SPARKLE_SANDBOX_SERVICE_NAME, NULL);
 	xpc_connection_set_event_handler(connection, ^(xpc_object_t event) {
 		xpc_dictionary_apply(event, ^bool(const char *key, xpc_object_t value) {
-			NSLog(@"XPC %@: %@", [NSString stringWithUTF8String:key], [NSString stringWithUTF8String:xpc_string_get_string_ptr(value)]);
+			const char *xpcString = xpc_string_get_string_ptr(value);
+
+			if (xpcString) {
+				NSLog(@"XPC %@: %@", [NSString stringWithUTF8String:key], [NSString stringWithUTF8String:xpcString]);
+			}
+
 			return true;
 		});
 	});
@@ -32,7 +37,11 @@
 	
 	xpc_object_t array = xpc_array_create(NULL, 0);
 	for (id argument in arguments) {
-		xpc_array_append_value(array, xpc_string_create([argument UTF8String]));
+		const char *argumentString = [argument UTF8String];
+
+		if (argumentString) {
+			xpc_array_append_value(array, xpc_string_create(argumentString));
+		}
 	}
 	
 	xpc_dictionary_set_value(message, "arguments", array);

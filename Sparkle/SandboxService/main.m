@@ -54,10 +54,14 @@ static void peer_event_handler(xpc_connection_t peer, xpc_object_t event)
 			}
 			
 			for (size_t i = 0; i < xpc_array_get_count(array); i++) {
-				NSString *string = [NSString stringWithUTF8String:xpc_array_get_string(array, i)];
-				
-				if (string) {
-					[arguments addObject:string];
+				const char *xpcString = xpc_array_get_string(array, i);
+
+				if (xpcString) {
+					NSString *string = [NSString stringWithUTF8String:xpcString];
+					
+					if (string) {
+						[arguments addObject:string];
+					}
 				}
 			}
 			
