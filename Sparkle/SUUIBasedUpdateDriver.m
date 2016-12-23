@@ -98,8 +98,9 @@
         alert.informativeText = [NSString stringWithFormat:SULocalizedString(@"%@ %@ is currently the newest version available.", nil), [self.host name], [self.host displayVersion]];
         [alert addButtonWithTitle:SULocalizedString(@"OK", nil)];
         [self showAlert:alert];
-        [self abortUpdate];
     }
+    
+    [self abortUpdate];
 }
 
 - (void)applicationDidBecomeActive:(NSNotification *)__unused aNotification
@@ -166,8 +167,9 @@
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wpartial-availability"
-    return [NSByteCountFormatter stringFromByteCount:value
-                                          countStyle:NSByteCountFormatterCountStyleFile];
+    NSByteCountFormatter *formatter = [[NSByteCountFormatter alloc] init];
+    [formatter setZeroPadsFractionDigits:YES];
+    return [formatter stringFromByteCount:value];
 #pragma clang diagnostic pop
 }
 

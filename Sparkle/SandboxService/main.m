@@ -47,7 +47,7 @@ static void peer_event_handler(xpc_connection_t peer, xpc_object_t event)
 			NSMutableArray *arguments = [NSMutableArray array];
 			NSError *error;
 			
-			[[SUFileManager fileManagerAllowingAuthorization:YES] releaseItemFromQuarantineAtRootURL:[NSURL fileURLWithPath:relaunchToolPath] error:&error];
+			[[SUFileManager defaultManager] releaseItemFromQuarantineAtRootURL:[NSURL fileURLWithPath:relaunchToolPath] error:&error];
 			
 			if (error) {
 				NSLog(@"Failed to release %@ from quarantine: %@", relaunchToolPath, error);
