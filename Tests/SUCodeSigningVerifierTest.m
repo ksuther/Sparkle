@@ -6,9 +6,10 @@
 //  Copyright (c) 2015 Sparkle Project. All rights reserved.
 //
 
-#import <Cocoa/Cocoa.h>
+#import <Foundation/Foundation.h>
 #import <XCTest/XCTest.h>
 #import "SUCodeSigningVerifier.h"
+#import "SUAdHocCodeSigning.h"
 #import "SUFileManager.h"
 
 #define CALCULATOR_PATH @"/Applications/Calculator.app"
@@ -37,8 +38,8 @@
     NSString *unitTestBundleIdentifier = unitTestBundle.bundleIdentifier;
     NSString *zippedAppURL = [unitTestBundle pathForResource:@"SparkleTestCodeSignApp" ofType:@"zip"];
 
-    SUFileManager *fileManager = [SUFileManager defaultManager];
-
+    SUFileManager *fileManager = [[SUFileManager alloc] init];
+    
     NSError *tempError = nil;
     NSURL *tempDir = [fileManager makeTemporaryDirectoryWithPreferredName:unitTestBundleIdentifier appropriateForDirectoryURL:[NSURL fileURLWithPath:zippedAppURL] error:&tempError];
 
@@ -86,9 +87,8 @@
     }
 
     self.validSignedAppURL = signedAndValid;
-
-    if (![self codesignAppURL:self.validSignedAppURL]) {
-        XCTFail(@"Failed to codesign %@", self.validSignedAppURL);
+    if (![SUAdHocCodeSigning codeSignApplicationAtPath:self.validSignedAppURL.path]) {
+        NSLog(@"Failed to codesign %@", self.validSignedAppURL);
     }
 }
 
@@ -106,7 +106,7 @@
     // which sounds like some kind of (SIP / attribute?) bug
     [[NSFileManager defaultManager] copyItemAtURL:[NSURL fileURLWithPath:CALCULATOR_PATH] toURL:calculatorCopy error:&copyError];
 
-    if (![calculatorCopy checkResourceIsReachableAndReturnError:nil]) {
+    if (![calculatorCopy checkResourceIsReachableAndReturnError:NULL]) {
         XCTFail(@"Copied calculator application does not exist");
     }
 
@@ -131,7 +131,7 @@
     [[NSFileManager defaultManager] removeItemAtURL:signedAndInvalid error:NULL];
     if ([[NSFileManager defaultManager] copyItemAtURL:self.notSignedAppURL toURL:signedAndInvalid error:&error]) {
         self.invalidSignedAppURL = signedAndInvalid;
-        if ([self codesignAppURL:self.invalidSignedAppURL]) {
+        if ([SUAdHocCodeSigning codeSignApplicationAtPath:self.invalidSignedAppURL.path]) {
             NSURL *fileInAppBundleToRemove = [self.invalidSignedAppURL URLByAppendingPathComponent:@"Contents/Resources/test_app_only_dsa_pub.pem"];
             if (![[NSFileManager defaultManager] removeItemAtURL:fileInAppBundleToRemove error:&error]) {
                 NSLog(@"Failed to remove %@ with error %@", fileInAppBundleToRemove, error);
@@ -157,24 +157,6 @@
         task.arguments = @[zipPath];
 
         [task launch];
-        [task waitUntilExit];
-        success = (task.terminationStatus == 0);
-    }
-    @catch (NSException *exception)
-    {
-        NSLog(@"exception: %@", exception);
-    }
-    return success;
-}
-
-- (BOOL)codesignAppURL:(NSURL *)appPath
-{
-    BOOL success = NO;
-    @try
-    {
-        // ad-hoc signing with the dash
-        NSArray *arguments = @[ @"--force", @"--deep", @"--sign", @"-", appPath ];
-        NSTask *task = [NSTask launchedTaskWithLaunchPath:@"/usr/bin/codesign" arguments:arguments];
         [task waitUntilExit];
         success = (task.terminationStatus == 0);
     }

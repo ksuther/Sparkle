@@ -12,30 +12,30 @@ class SUFileManagerTest: XCTestCase
 {
     func makeTempFiles(_ testBlock: (SUFileManager, URL, URL, URL, URL, URL, URL) -> Void)
     {
-        let fileManager = SUFileManager.default()
+        let fileManager = SUFileManager()
         
-        let tempDirectoryURL = try! fileManager?.makeTemporaryDirectory(withPreferredName: "Sparkle Unit Test Data", appropriateForDirectoryURL: URL(fileURLWithPath: NSHomeDirectory()))
+        let tempDirectoryURL = try! fileManager.makeTemporaryDirectory(withPreferredName: "Sparkle Unit Test Data", appropriateForDirectoryURL: URL(fileURLWithPath: NSHomeDirectory()))
         
         defer {
-            try! fileManager?.removeItem(at: tempDirectoryURL)
+            try! fileManager.removeItem(at: tempDirectoryURL)
         }
         
-        let ordinaryFileURL = tempDirectoryURL?.appendingPathComponent("a file written by sparkles unit tests")
-        try! "foo".data(using: String.Encoding.utf8)!.write(to: ordinaryFileURL!, options: .atomic)
+        let ordinaryFileURL = tempDirectoryURL.appendingPathComponent("a file written by sparkles unit tests")
+        try! "foo".data(using: String.Encoding.utf8)!.write(to: ordinaryFileURL, options: .atomic)
         
-        let directoryURL = tempDirectoryURL?.appendingPathComponent("a directory written by sparkles unit tests")
-        try! FileManager.default.createDirectory(at: directoryURL!, withIntermediateDirectories: false, attributes: nil)
+        let directoryURL = tempDirectoryURL.appendingPathComponent("a directory written by sparkles unit tests")
+        try! FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: false, attributes: nil)
         
-        let fileInDirectoryURL = directoryURL?.appendingPathComponent("a file inside a directory written by sparkles unit tests")
-        try! "bar baz".data(using: String.Encoding.utf8)!.write(to: fileInDirectoryURL!, options: .atomic)
+        let fileInDirectoryURL = directoryURL.appendingPathComponent("a file inside a directory written by sparkles unit tests")
+        try! "bar baz".data(using: String.Encoding.utf8)!.write(to: fileInDirectoryURL, options: .atomic)
         
-        let validSymlinkURL = tempDirectoryURL?.appendingPathComponent("symlink test")
-        try! FileManager.default.createSymbolicLink(at: validSymlinkURL!, withDestinationURL: directoryURL!)
+        let validSymlinkURL = tempDirectoryURL.appendingPathComponent("symlink test")
+        try! FileManager.default.createSymbolicLink(at: validSymlinkURL, withDestinationURL: directoryURL)
         
-        let invalidSymlinkURL = tempDirectoryURL?.appendingPathComponent("symlink test 2")
-        try! FileManager.default.createSymbolicLink(at: invalidSymlinkURL!, withDestinationURL: (tempDirectoryURL?.appendingPathComponent("does not exist"))!)
+        let invalidSymlinkURL = tempDirectoryURL.appendingPathComponent("symlink test 2")
+        try! FileManager.default.createSymbolicLink(at: invalidSymlinkURL, withDestinationURL: (tempDirectoryURL.appendingPathComponent("does not exist")))
         
-        testBlock(fileManager!, tempDirectoryURL!, ordinaryFileURL!, directoryURL!, fileInDirectoryURL!, validSymlinkURL!, invalidSymlinkURL!)
+        testBlock(fileManager, tempDirectoryURL, ordinaryFileURL, directoryURL, fileInDirectoryURL, validSymlinkURL, invalidSymlinkURL)
     }
     
     func testMoveFiles()
@@ -67,38 +67,6 @@ class SUFileManagerTest: XCTestCase
             XCTAssertTrue(fileManager._itemExists(at: newDirectoryURL))
             XCTAssertFalse(fileManager._itemExists(at: fileInDirectoryURL))
             XCTAssertTrue(fileManager._itemExists(at: newDirectoryURL.appendingPathComponent(fileInDirectoryURL.lastPathComponent)))
-        }
-    }
-    
-    func testMoveFilesToTrash()
-    {
-        makeTempFiles() { fileManager, rootURL, ordinaryFileURL, directoryURL, fileInDirectoryURL, validSymlinkURL, invalidSymlinkURL in
-            XCTAssertNil(try? fileManager.moveItemAtURL(toTrash: rootURL.appendingPathComponent("does not exist")))
-            
-            let trashURL = try! FileManager.default.url(for: .trashDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
-            
-            try! fileManager.moveItemAtURL(toTrash: ordinaryFileURL)
-            XCTAssertFalse(fileManager._itemExists(at: ordinaryFileURL))
-            
-            let ordinaryFileTrashURL = trashURL.appendingPathComponent(ordinaryFileURL.lastPathComponent)
-            XCTAssertTrue(fileManager._itemExists(at: ordinaryFileTrashURL))
-            try! fileManager.removeItem(at: ordinaryFileTrashURL)
-            
-            let validSymlinkTrashURL = trashURL.appendingPathComponent(validSymlinkURL.lastPathComponent)
-            try! fileManager.moveItemAtURL(toTrash: validSymlinkURL)
-            XCTAssertTrue(fileManager._itemExists(at: validSymlinkTrashURL))
-            XCTAssertTrue(fileManager._itemExists(at: directoryURL))
-            try! fileManager.removeItem(at: validSymlinkTrashURL)
-            
-            try! fileManager.moveItemAtURL(toTrash: directoryURL)
-            XCTAssertFalse(fileManager._itemExists(at: directoryURL))
-            XCTAssertFalse(fileManager._itemExists(at: fileInDirectoryURL))
-            
-            let directoryTrashURL = trashURL.appendingPathComponent(directoryURL.lastPathComponent)
-            XCTAssertTrue(fileManager._itemExists(at: directoryTrashURL))
-            XCTAssertTrue(fileManager._itemExists(at: directoryTrashURL.appendingPathComponent(fileInDirectoryURL.lastPathComponent)))
-            
-            try! fileManager.removeItem(at: directoryTrashURL)
         }
     }
     
@@ -260,6 +228,53 @@ class SUFileManagerTest: XCTestCase
         }
     }
     
+    func testUpdateFileAccessTime()
+    {
+        let accessTime: ((URL) -> timespec?) = { url in
+            var outputStat = stat()
+            let result = lstat(url.path, &outputStat)
+            if result != 0 {
+                return nil
+            } else {
+                return outputStat.st_atimespec
+            }
+        }
+        
+        let timespecEqual: (timespec, timespec) -> Bool = {t1, t2 in
+            (t1.tv_sec == t2.tv_sec && t1.tv_nsec == t2.tv_nsec)
+        }
+        
+        makeTempFiles() { fileManager, rootURL, ordinaryFileURL, directoryURL, fileInDirectoryURL, validSymlinkURL, invalidSymlinkURL in
+            XCTAssertNil(try? fileManager.updateAccessTimeOfItem(atRootURL: rootURL.appendingPathComponent("does not exist")))
+            
+            let oldOrdinaryFileTime = accessTime(ordinaryFileURL)!
+            let oldDirectoryTime = accessTime(directoryURL)!
+            let oldValidSymlinkTime = accessTime(validSymlinkURL)!
+            
+            sleep(1); // wait for clock to advance
+            
+            // Make sure access time haven't changed since; lstat() shouldn't have changed the access time..
+            XCTAssertTrue(timespecEqual(oldOrdinaryFileTime, accessTime(ordinaryFileURL)!))
+            XCTAssertTrue(timespecEqual(oldDirectoryTime, accessTime(directoryURL)!))
+            XCTAssertTrue(timespecEqual(oldValidSymlinkTime, accessTime(validSymlinkURL)!))
+            
+            // Test the symlink and make sure the target directory doesn't change
+            try! fileManager.updateAccessTimeOfItem(atRootURL: validSymlinkURL)
+            XCTAssertFalse(timespecEqual(oldValidSymlinkTime, accessTime(validSymlinkURL)!))
+            XCTAssertTrue(timespecEqual(oldDirectoryTime, accessTime(directoryURL)!))
+            
+            // Test an ordinary file
+            try! fileManager.updateAccessTimeOfItem(atRootURL: ordinaryFileURL)
+            XCTAssertFalse(timespecEqual(oldOrdinaryFileTime, accessTime(ordinaryFileURL)!))
+            
+            // Test the directory and file inside the directory
+            try! fileManager.updateAccessTimeOfItem(atRootURL: directoryURL)
+            let newDirectoryTime = accessTime(directoryURL)!
+            XCTAssertFalse(timespecEqual(oldDirectoryTime, newDirectoryTime))
+            XCTAssertTrue(timespecEqual(newDirectoryTime, accessTime(fileInDirectoryURL)!))
+        }
+    }
+    
     func testFileExists()
     {
         makeTempFiles() { fileManager, rootURL, ordinaryFileURL, directoryURL, fileInDirectoryURL, validSymlinkURL, invalidSymlinkURL in
@@ -306,11 +321,5 @@ class SUFileManagerTest: XCTestCase
             try! fileManager.removeItem(at: directoryURL)
             XCTAssertNil(try? fileManager.makeDirectory(at: validSymlinkURL))
         }
-    }
-    
-    func testAcquireBadAuthorization()
-    {
-        let fileManager = SUFileManager.default()
-        XCTAssertNil(try? fileManager?._acquireAuthorization())
     }
 }

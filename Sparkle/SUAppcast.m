@@ -6,14 +6,19 @@
 //  Copyright 2006 Andy Matuschak. All rights reserved.
 //
 
-#import "SUUpdater.h"
-
 #import "SUAppcast.h"
 #import "SUAppcastItem.h"
 #import "SUVersionComparisonProtocol.h"
-#import "SUAppcast.h"
 #import "SUConstants.h"
 #import "SULog.h"
+#import "SUErrors.h"
+#import "SULocalizations.h"
+#import "SPUXPCServiceInfo.h"
+#import "SPUURLDownload.h"
+#import "SPUDownloadData.h"
+
+
+#include "AppKitPrevention.h"
 
 @interface NSXMLElement (SUAppcastExtensions)
 @property (readonly, copy) NSDictionary *attributesAsDictionary;
@@ -41,8 +46,6 @@
 
 @interface SUAppcast () <NSURLDownloadDelegate>
 @property (strong) void (^completionBlock)(NSError *);
-@property (copy) NSString *downloadFilename;
-@property (strong) NSURLDownload *download;
 @property (copy) NSArray *items;
 - (void)reportError:(NSError *)error;
 - (NSXMLNode *)bestNodeInNodes:(NSArray *)nodes;
@@ -50,72 +53,66 @@
 
 @implementation SUAppcast
 
-@synthesize downloadFilename;
 @synthesize completionBlock;
 @synthesize userAgentString;
 @synthesize httpHeaders;
-@synthesize download;
 @synthesize items;
 
-- (void)fetchAppcastFromURL:(NSURL *)url completionBlock:(void (^)(NSError *))block
+- (void)fetchAppcastFromURL:(NSURL *)url inBackground:(BOOL)background completionBlock:(void (^)(NSError *))block
 {
     self.completionBlock = block;
 
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url cachePolicy:NSURLRequestReloadIgnoringCacheData timeoutInterval:30.0];
+    if (background) {
+        request.networkServiceType = NSURLNetworkServiceTypeBackground;
+    }
+
     if (self.userAgentString) {
         [request setValue:self.userAgentString forHTTPHeaderField:@"User-Agent"];
     }
+    request.networkServiceType = background ? NSURLNetworkServiceTypeBackground : NSURLNetworkServiceTypeDefault;
 
     if (self.httpHeaders) {
         for (NSString *key in self.httpHeaders) {
-            id value = [self.httpHeaders objectForKey:key];
+            NSString *value = [self.httpHeaders objectForKey:key];
             [request setValue:value forHTTPHeaderField:key];
         }
     }
 
     [request setValue:@"application/rss+xml,*/*;q=0.1" forHTTPHeaderField:@"Accept"];
-
-    self.download = [[NSURLDownload alloc] initWithRequest:request delegate:self];
-}
-
-- (void)download:(NSURLDownload *)__unused aDownload decideDestinationWithSuggestedFilename:(NSString *)filename
-{
-    NSString *destinationFilename = NSTemporaryDirectory();
-	if (destinationFilename)
-	{
-        destinationFilename = [destinationFilename stringByAppendingPathComponent:filename];
-        [self.download setDestination:destinationFilename allowOverwrite:NO];
-    }
-}
-
-- (void)download:(NSURLDownload *)__unused aDownload didCreateDestination:(NSString *)path
-{
-    self.downloadFilename = path;
-}
-
-- (void)downloadDidFinish:(NSURLDownload *)__unused aDownload
-{
-    NSError *error = nil;
-    NSArray *appcastItems = [self parseAppcastItemsFromXMLFile:[NSURL fileURLWithPath:self.downloadFilename] error:&error];
-
-    [[NSFileManager defaultManager] removeItemAtPath:self.downloadFilename error:nil];
-    self.downloadFilename = nil;
-
-    if (appcastItems) {
-        self.items = appcastItems;
-        self.completionBlock(nil);
-        self.completionBlock = nil;
-    } else {
-        NSMutableDictionary *userInfo = [NSMutableDictionary
-            dictionaryWithObject: SULocalizedString(@"An error occurred while parsing the update feed.", nil)
-                          forKey: NSLocalizedDescriptionKey];
-        if (error) {
-            [userInfo setObject:error forKey:NSUnderlyingErrorKey];
+    
+    SPUDownloadURLWithRequest(request, ^(SPUDownloadData * _Nullable downloadData, NSError * _Nullable error) {
+        if (downloadData != nil) {
+            NSError *parseError = nil;
+            NSArray *appcastItems = [self parseAppcastItemsFromXMLData:downloadData.data error:&parseError];
+            
+            if (appcastItems != nil) {
+                self.items = appcastItems;
+                self.completionBlock(nil);
+                self.completionBlock = nil;
+            } else {
+                NSMutableDictionary *userInfo = [NSMutableDictionary
+                                                 dictionaryWithObject: SULocalizedString(@"An error occurred while parsing the update feed.", nil)
+                                                 forKey: NSLocalizedDescriptionKey];
+                if (parseError != nil) {
+                    [userInfo setObject:parseError forKey:NSUnderlyingErrorKey];
+                }
+                [self reportError:[NSError errorWithDomain:SUSparkleErrorDomain
+                                                      code:SUAppcastParseError
+                                                  userInfo:userInfo]];
+            }
+        } else {
+            SULog(SULogLevelError, @"Encountered download feed error: %@", error);
+            
+            NSDictionary *userInfo = [NSDictionary
+                                      dictionaryWithObject: SULocalizedString(@"An error occurred while downloading the update feed.", nil)
+                                      forKey: NSLocalizedDescriptionKey];
+            
+            [self reportError:[NSError errorWithDomain:SUSparkleErrorDomain
+                                                  code:SUDownloadError
+                                              userInfo:userInfo]];
         }
-        [self reportError:[NSError errorWithDomain:SUSparkleErrorDomain
-                                              code:SUAppcastParseError
-                                          userInfo:userInfo]];
-    }
+    });
 }
 
 - (NSDictionary *)attributesOfNode:(NSXMLElement *)node
@@ -128,9 +125,9 @@
         if (!attrName) {
             continue;
         }
-        NSString *stringValue = [attribute stringValue];
-        if (stringValue) {
-            [dictionary setObject:stringValue forKey:attrName];
+        NSString *attributeStringValue = [attribute stringValue];
+        if (attributeStringValue != nil) {
+            [dictionary setObject:attributeStringValue forKey:attrName];
         }
     }
     return dictionary;
@@ -148,17 +145,9 @@
     }
 }
 
--(NSArray *)parseAppcastItemsFromXMLFile:(NSURL *)appcastFile error:(NSError *__autoreleasing*)errorp {
-    if (errorp) {
-        *errorp = nil;
-    }
-
-    if (!appcastFile) {
-        return nil;
-    }
-
+-(NSArray *)parseAppcastItemsFromXMLData:(NSData *)appcastData error:(NSError *__autoreleasing*)errorp {
     NSUInteger options = NSXMLNodeLoadExternalEntitiesNever; // Prevent inclusion from file://
-    NSXMLDocument *document = [[NSXMLDocument alloc] initWithContentsOfURL:appcastFile options:options error:errorp];
+    NSXMLDocument *document = [[NSXMLDocument alloc] initWithData:appcastData options:options error:errorp];
 	if (nil == document) {
         return nil;
     }
@@ -245,7 +234,7 @@
             [appcastItems addObject:anItem];
 		}
         else {
-            SULog(@"Sparkle Updater: Failed to parse appcast item: %@.\nAppcast dictionary was: %@", errString, dict);
+            SULog(SULogLevelError, @"Sparkle Updater: Failed to parse appcast item: %@.\nAppcast dictionary was: %@", errString, dict);
             if (errorp) *errorp = [NSError errorWithDomain:SUSparkleErrorDomain
                                                       code:SUAppcastParseError
                                                   userInfo:@{NSLocalizedDescriptionKey: errString}];
@@ -256,21 +245,6 @@
     self.items = appcastItems;
 
     return appcastItems;
-}
-
-- (void)download:(NSURLDownload *)__unused aDownload didFailWithError:(NSError *)error
-{
-    if (self.downloadFilename) {
-        [[NSFileManager defaultManager] removeItemAtPath:self.downloadFilename error:nil];
-    }
-    self.downloadFilename = nil;
-
-    [self reportError:error];
-}
-
-- (NSURLRequest *)download:(NSURLDownload *)__unused aDownload willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)__unused redirectResponse
-{
-    return request;
 }
 
 - (void)reportError:(NSError *)error
