@@ -41,7 +41,7 @@ static NSString * const UPDATED_VERSION = @"2.0";
     }
     
     // Detect as early as possible if the shift key is held down
-    BOOL shiftKeyHeldDown = ([NSEvent modifierFlags] & NSShiftKeyMask) != 0;
+    BOOL shiftKeyHeldDown = ([NSEvent modifierFlags] & NSEventModifierFlagShift) != 0;
     
     // Apple's file manager may not work well over the network (on macOS 10.11.4 as of writing this), but at the same time
     // I don't want to have to export SUFileManager in release mode. The test app is primarily
