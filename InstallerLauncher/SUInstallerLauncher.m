@@ -20,6 +20,8 @@
 
 #include "AppKitPrevention.h"
 
+@import ImageIO;
+
 @implementation SUInstallerLauncher
 
 - (BOOL)submitProgressToolAtPath:(NSString *)progressToolPath withHostBundle:(NSBundle *)hostBundle inSystemDomainForInstaller:(BOOL)inSystemDomainForInstaller
